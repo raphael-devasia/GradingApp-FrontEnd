@@ -63,6 +63,7 @@
     "react-pdf": "latest",
     "react-resizable-panels": "^2.1.7",
     "recharts": "2.15.0",
+    "sanitize-html": "^2.16.0",
     "sonner": "^1.7.1",
     "stripe": "latest",
     "tailwind-merge": "^2.5.5",
