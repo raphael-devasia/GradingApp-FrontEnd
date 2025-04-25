@@ -6,6 +6,7 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
+import { signOut } from "next-auth/react"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -19,6 +20,7 @@ import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import { cn } from "@/lib/utils"
 import { FreeTrialBanner } from "@/components/free-trial-banner"
 import { Logo } from "@/components/logo"
+import { toast } from "sonner"
 
 export default function DashboardLayout({ children }: { children: ReactNode }) {
   const [isMobile, setIsMobile] = useState(false)
@@ -26,18 +28,39 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   const [isSidebarCollapsed, setSidebarCollapsed] = useState(false)
 
   useEffect(() => {
-    const checkIsMobile = () => {
-      setIsMobile(window.innerWidth < 768)
-    }
+      const checkIsMobile = () => {
+          setIsMobile(window.innerWidth < 768)
+      }
+      // This is the complete signOut function you can use
+      const handleSignOut = async () => {
+          try {
+              await signOut({
+                  callbackUrl: "/login?logout=success",
+                  redirect: true,
+              })
+              // Clear local storage if needed
+              if (typeof window !== "undefined") {
+                  localStorage.removeItem("token")
+                  localStorage.removeItem("classroomId")
+              }
+          } catch (error) {
+              console.error("Sign out error:", error)
+              toast({
+                  title: "Error",
+                  description: "Failed to sign out",
+                  variant: "destructive",
+              })
+          }
+      }
 
-    // Initial check
-    checkIsMobile()
+      // Initial check
+      checkIsMobile()
 
-    // Add event listener
-    window.addEventListener("resize", checkIsMobile)
+      // Add event listener
+      window.addEventListener("resize", checkIsMobile)
 
-    // Cleanup
-    return () => window.removeEventListener("resize", checkIsMobile)
+      // Cleanup
+      return () => window.removeEventListener("resize", checkIsMobile)
   }, [])
 
   // Redirect from dashboard root to assignments
@@ -124,121 +147,165 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   )
 
   return (
-    <div className="flex min-h-screen flex-col">
-      <FreeTrialBanner daysRemaining={3} hoursRemaining={0} creditsRemaining={3} />
-      <header className="sticky top-0 z-50 w-full border-b bg-background">
-        <div className="container flex h-14 items-center">
-          <div className="mr-4 flex items-center">
-            {isMobile ? (
-              <Sheet>
-                <SheetTrigger asChild>
-                  <Button variant="ghost" size="icon" className="mr-2">
-                    <Menu className="h-5 w-5" />
-                    <span className="sr-only">Toggle menu</span>
-                  </Button>
-                </SheetTrigger>
-                <SheetContent side="left" className="w-[240px] sm:w-[300px]">
-                  <div className="flex h-full flex-col">
-                    <div className="flex items-center border-b py-4">
-                      <Logo size="md" />
-                    </div>
-                    <div className="flex flex-col space-y-1 p-4">
-                      <NavItems />
-                    </div>
-                  </div>
-                </SheetContent>
-              </Sheet>
-            ) : null}
+      <div className="flex min-h-screen flex-col">
+          <FreeTrialBanner
+              daysRemaining={3}
+              hoursRemaining={0}
+              creditsRemaining={3}
+          />
+          <header className="sticky top-0 z-50 w-full border-b bg-background">
+              <div className="container flex h-14 items-center">
+                  <div className="mr-4 flex items-center">
+                      {isMobile ? (
+                          <Sheet>
+                              <SheetTrigger asChild>
+                                  <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="mr-2"
+                                  >
+                                      <Menu className="h-5 w-5" />
+                                      <span className="sr-only">
+                                          Toggle menu
+                                      </span>
+                                  </Button>
+                              </SheetTrigger>
+                              <SheetContent
+                                  side="left"
+                                  className="w-[240px] sm:w-[300px]"
+                              >
+                                  <div className="flex h-full flex-col">
+                                      <div className="flex items-center border-b py-4">
+                                          <Logo size="md" />
+                                      </div>
+                                      <div className="flex flex-col space-y-1 p-4">
+                                          <NavItems />
+                                      </div>
+                                  </div>
+                              </SheetContent>
+                          </Sheet>
+                      ) : null}
 
-            <Logo size="md" />
+                      <Logo size="md" />
+                  </div>
+                  <div className="flex flex-1 items-center justify-end space-x-2">
+                      <Button
+                          variant="outline"
+                          size="sm"
+                          className="ml-auto h-8"
+                          asChild
+                      >
+                          <a
+                              href="https://gradegenie.hipporello.net/desk"
+                              target="_blank"
+                              rel="noopener noreferrer"
+                          >
+                              <MessageSquare className="mr-2 h-4 w-4" />
+                              Feedback
+                          </a>
+                      </Button>
+                      <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                              <Button
+                                  variant="ghost"
+                                  className="relative h-8 w-8 rounded-full"
+                              >
+                                  <Avatar className="h-8 w-8">
+                                      <AvatarImage
+                                          src="/placeholder.svg"
+                                          alt="Professor"
+                                      />
+                                      <AvatarFallback className="bg-primary/10 text-primary">
+                                          PF
+                                      </AvatarFallback>
+                                  </Avatar>
+                              </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                              <DropdownMenuLabel>My Account</DropdownMenuLabel>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem asChild>
+                                  <a
+                                      href="https://gradegenie.hipporello.net/desk"
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                  >
+                                      <MessageSquare className="mr-2 h-4 w-4" />
+                                      <span>Feedback</span>
+                                  </a>
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                  onClick={async () => {
+                                      await signOut({
+                                          callbackUrl: "/login?logout=success",
+                                          redirect: true,
+                                      })
+                                      // Clear local storage
+                                      if (typeof window !== "undefined") {
+                                          localStorage.removeItem("token")
+                                          localStorage.removeItem("classroomId")
+                                      }
+                                  }}
+                              >
+                                  <LogOut className="mr-2 h-4 w-4" />
+                                  <span>Log out</span>
+                              </DropdownMenuItem>
+                          </DropdownMenuContent>
+                      </DropdownMenu>
+                  </div>
+              </div>
+          </header>
+          <div className="flex flex-1">
+              {/* Desktop Sidebar */}
+              <aside
+                  className={cn(
+                      "flex-col border-r bg-secondary transition-all duration-300 ease-in-out",
+                      isMobile ? "hidden" : "flex",
+                      isSidebarCollapsed ? "w-[60px]" : "w-[240px]"
+                  )}
+              >
+                  <div className="flex flex-col space-y-1 p-4 h-full relative">
+                      <Button
+                          variant="ghost"
+                          size="sm"
+                          className="absolute -right-3 top-2 h-6 w-6 rounded-full border bg-background p-0"
+                          onClick={toggleSidebar}
+                      >
+                          {isSidebarCollapsed ? (
+                              <svg
+                                  xmlns="http://www.w3.org/2000/svg"
+                                  width="16"
+                                  height="16"
+                                  viewBox="0 0 24 24"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  strokeWidth="2"
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                              >
+                                  <path d="m9 18 6-6-6-6" />
+                              </svg>
+                          ) : (
+                              <svg
+                                  xmlns="http://www.w3.org/2000/svg"
+                                  width="16"
+                                  height="16"
+                                  viewBox="0 0 24 24"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  strokeWidth="2"
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                              >
+                                  <path d="m15 18-6-6 6-6" />
+                              </svg>
+                          )}
+                      </Button>
+                      <NavItems />
+                  </div>
+              </aside>
+              <main className="flex-1">{children}</main>
           </div>
-          <div className="flex flex-1 items-center justify-end space-x-2">
-            <Button variant="outline" size="sm" className="ml-auto h-8" asChild>
-              <a href="https://gradegenie.hipporello.net/desk" target="_blank" rel="noopener noreferrer">
-                <MessageSquare className="mr-2 h-4 w-4" />
-                Feedback
-              </a>
-            </Button>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="relative h-8 w-8 rounded-full">
-                  <Avatar className="h-8 w-8">
-                    <AvatarImage src="/placeholder.svg" alt="Professor" />
-                    <AvatarFallback className="bg-primary/10 text-primary">PF</AvatarFallback>
-                  </Avatar>
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuLabel>My Account</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem asChild>
-                  <a href="https://gradegenie.hipporello.net/desk" target="_blank" rel="noopener noreferrer">
-                    <MessageSquare className="mr-2 h-4 w-4" />
-                    <span>Feedback</span>
-                  </a>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Link href="/login">
-                    <LogOut className="mr-2 h-4 w-4" />
-                    <span>Log out</span>
-                  </Link>
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-        </div>
-      </header>
-      <div className="flex flex-1">
-        {/* Desktop Sidebar */}
-        <aside
-          className={cn(
-            "flex-col border-r bg-secondary transition-all duration-300 ease-in-out",
-            isMobile ? "hidden" : "flex",
-            isSidebarCollapsed ? "w-[60px]" : "w-[240px]",
-          )}
-        >
-          <div className="flex flex-col space-y-1 p-4 h-full relative">
-            <Button
-              variant="ghost"
-              size="sm"
-              className="absolute -right-3 top-2 h-6 w-6 rounded-full border bg-background p-0"
-              onClick={toggleSidebar}
-            >
-              {isSidebarCollapsed ? (
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="16"
-                  height="16"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <path d="m9 18 6-6-6-6" />
-                </svg>
-              ) : (
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="16"
-                  height="16"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <path d="m15 18-6-6 6-6" />
-                </svg>
-              )}
-            </Button>
-            <NavItems />
-          </div>
-        </aside>
-        <main className="flex-1">{children}</main>
       </div>
-    </div>
   )
 }

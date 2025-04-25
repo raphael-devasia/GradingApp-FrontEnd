@@ -100,7 +100,11 @@ export default function LoginPage() {
         }
 
         // Store token and classroomId after OAuth login
-        if (status === "authenticated" && session?.appToken && session?.classroomId) {
+        if (
+            status === "authenticated" &&
+            session?.appToken &&
+            session?.classroomId
+        ) {
             console.log("Storing OAuth session data:", {
                 token: session.appToken,
                 classroomId: session.classroomId,
@@ -110,6 +114,16 @@ export default function LoginPage() {
             router.push("/dashboard/assignments")
         }
     }, [searchParams, toast, session, status, router])
+    // Add this useEffect to handle post-logout state
+    useEffect(() => {
+        const logoutMessage = searchParams.get("logout")
+        if (logoutMessage === "success") {
+            toast({
+                title: "Logged out",
+                description: "You have been successfully logged out",
+            })
+        }
+    }, [searchParams, toast])
 
     const handleOAuth = async (provider: "google" | "microsoft") => {
         setLoading(true)
@@ -142,7 +156,8 @@ export default function LoginPage() {
             setError(err.message || "Authentication failed. Please try again.")
             toast({
                 title: "Error",
-                description: err.message || "Authentication failed. Please try again.",
+                description:
+                    err.message || "Authentication failed. Please try again.",
                 variant: "destructive",
             })
             setLoading(false)
@@ -158,7 +173,9 @@ export default function LoginPage() {
             const result = await login(email, password)
             console.log("Credentials login result:", result)
             if (!result.data?.token || !result.data?.classroomId) {
-                throw new Error("Missing token or classroomId in login response")
+                throw new Error(
+                    "Missing token or classroomId in login response"
+                )
             }
             localStorage.setItem("token", result.data.token)
             localStorage.setItem("classroomId", result.data.classroomId)

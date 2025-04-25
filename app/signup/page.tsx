@@ -109,24 +109,34 @@ export default function SignupPage() {
         if (
             status === "authenticated" &&
             session?.appToken &&
-            session?.classroomId &&
-            step === 1
+            session?.classroomId
         ) {
-            console.log("OAuth signup success:", { session })
-            localStorage.setItem("token", session.appToken)
-            localStorage.setItem("classroomId", session.classroomId)
-            setStep(2)
-            toast({
-                title: "Success",
-                description: "Signed up successfully. Please select a plan.",
-            })
+            console.log("Auth session:", { session })
+            // Check if this is a signup flow (tokenType or action indicates signup)
+            const isSignup =
+                session.tokenType === "signup" || session.action === "signup"
+
+            if (isSignup && step === 1) {
+                console.log("Signup flow detected")
+                localStorage.setItem("token", session.appToken)
+                localStorage.setItem("classroomId", session.classroomId)
+                setStep(2)
+                toast({
+                    title: "Success",
+                    description:
+                        "Signed up successfully. Please select a plan.",
+                })
+            } else if (!isSignup) {
+                // Handle login case
+                router.push("/dashboard/assignments")
+            }
         }
 
         if (step === 2 && !localStorage.getItem("token")) {
             setError("Please sign up to select a plan.")
             setStep(1)
         }
-    }, [searchParams, step, session, status, toast])
+    }, [searchParams, step, session, status, toast, router])
 
     const handleOAuth = async (provider: "google" | "microsoft") => {
         setLoading(true)
@@ -182,6 +192,9 @@ export default function SignupPage() {
                 {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
+                    ...(localStorage.getItem("token") && {
+            Authorization: `Bearer ${localStorage.getItem("token")}`
+          }),
                     body: JSON.stringify({
                         name,
                         email,
@@ -213,6 +226,8 @@ export default function SignupPage() {
             })
             localStorage.removeItem("token")
             setLoading(false)
+        } finally {
+            setLoading(false) // This ensures loading state is always reset
         }
     }
 
@@ -241,6 +256,7 @@ export default function SignupPage() {
             setStep(1)
             return
         }
+        
 
         try {
             const response = await fetch(

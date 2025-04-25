@@ -354,14 +354,16 @@ interface ExtendedSession extends Session {
     appToken?: string
     classroomId?: string
     error?: string
+    action?: string
+    tokenType?: "signup" | "login" // Add this line
     user: {
         id?: string
         name?: string
         email?: string
         image?: string
     }
-    action?: string
 }
+
 
 // Verify environment variables at startup
 const requiredEnvVars = [
@@ -447,6 +449,16 @@ export const authConfig: NextAuthConfig = {
             },
         }),
     ],
+    events: {
+        async signOut({ token }) {
+            console.log("User signed out", token)
+            // Clear any local storage items if needed
+            if (typeof window !== "undefined") {
+                localStorage.removeItem("token")
+                localStorage.removeItem("classroomId")
+            }
+        },
+    },
     callbacks: {
         async signIn({ user, account }) {
             console.log("signIn callback:", { user, account })
@@ -463,14 +475,17 @@ export const authConfig: NextAuthConfig = {
             }
             return true
         },
-        async jwt({ token, account, user, trigger }) {
-            console.log("JWT callback:", {
-                tokenKeys: token ? Object.keys(token) : "no token",
-                accountKeys: account ? Object.keys(account) : "no account",
-                userKeys: user ? Object.keys(user) : "no user",
-                trigger,
-            })
 
+        async jwt({ token, account, user, trigger }: {
+  token: JWT
+  user?: User
+  account?: Account | null
+  trigger?: "signIn" | "signUp" | "update" | "signOut"
+}) {
+           
+             if (trigger === "signOut") {
+                 return {} // Clear token on signout
+             }
             if (account && user) {
                 try {
                     token.accessToken = account.access_token
@@ -530,6 +545,7 @@ export const authConfig: NextAuthConfig = {
                         if (data.success && data.data) {
                             if (data.data.token)
                                 token.appToken = data.data.token
+                            token.tokenType = data.data.tokenType || "login"
                             if (data.data.classroomId)
                                 token.classroomId = data.data.classroomId
 
@@ -568,28 +584,40 @@ export const authConfig: NextAuthConfig = {
         async session(params: {
             session: Session
             token: JWT
-            user?: any
+            user?: User
             newSession?: any
             trigger?: "update"
-        }) {
+        }): Promise<ExtendedSession> {
             const { session, token } = params
-            console.log("Session callback:", {
-                sessionKeys: session ? Object.keys(session) : "no session",
-                tokenKeys: token ? Object.keys(token) : "no token",
+
+            console.log("Session callback invoked with:", {
+                session: session ? Object.keys(session) : "no session",
+                token: token ? Object.keys(token) : "no token",
+                trigger: params.trigger,
             })
 
-            const extendedSession = session as ExtendedSession
-            const extendedToken = token as ExtendedToken
-
-            if (!extendedSession.user) {
-                extendedSession.user = {
+            // Create extended session with proper typing
+            const extendedSession: ExtendedSession = {
+                ...session,
+                user: {
+                    ...session.user,
                     id: undefined,
                     name: undefined,
                     email: undefined,
                     image: undefined,
-                }
+                },
+                accessToken: undefined,
+                provider: undefined,
+                appToken: undefined,
+                classroomId: undefined,
+                error: undefined,
+                action: undefined,
             }
 
+            // Type assertion for extended token
+            const extendedToken = token as ExtendedToken
+
+            // Map token values to session
             extendedSession.accessToken = extendedToken.accessToken
             extendedSession.provider = extendedToken.provider
             extendedSession.appToken = extendedToken.appToken
@@ -597,13 +625,40 @@ export const authConfig: NextAuthConfig = {
             extendedSession.error = extendedToken.error
             extendedSession.action = extendedToken.action
 
+            // Add token type to session if it exists in token
+            if ("tokenType" in extendedToken) {
+                extendedSession.tokenType = extendedToken.tokenType
+            }
+
+            // Map user properties
             if (extendedToken.id) extendedSession.user.id = extendedToken.id
             if (extendedToken.name)
                 extendedSession.user.name = extendedToken.name
             if (extendedToken.email)
                 extendedSession.user.email = extendedToken.email
+            if (extendedToken.image)
+                extendedSession.user.image = extendedToken.image
 
-            console.log("Session after processing:", extendedSession)
+            // Debug logging
+            console.log("Processed session object:", {
+                user: {
+                    id: extendedSession.user.id,
+                    name: extendedSession.user.name,
+                    email: extendedSession.user.email,
+                },
+                accessToken: extendedSession.accessToken
+                    ? "***redacted***"
+                    : undefined,
+                provider: extendedSession.provider,
+                appToken: extendedSession.appToken
+                    ? "***redacted***"
+                    : undefined,
+                classroomId: extendedSession.classroomId,
+                error: extendedSession.error,
+                action: extendedSession.action,
+                tokenType: extendedSession.tokenType,
+            })
+
             return extendedSession
         },
         async redirect({ url, baseUrl }) {
