@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { CheckCircle, ShieldCheck } from "lucide-react"
 import {
     Button,
@@ -15,12 +15,12 @@ import {
     Label,
 } from "@/components/ui"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
 import { Logo } from "@/components/logo"
+import { signIn, useSession } from "next-auth/react"
+import { useToast } from "@/hooks/use-toast"
+import { useRouter, useSearchParams } from "next/navigation"
 import { login } from "@/lib/actions/auth"
-import { signIn,signOut,auth } from "@/auth"
 
-// Custom icon components (unchanged)
 function GoogleIcon(props: React.SVGProps<SVGSVGElement>) {
     return (
         <svg
@@ -32,7 +32,7 @@ function GoogleIcon(props: React.SVGProps<SVGSVGElement>) {
         >
             <path
                 fill="#4285F4"
-                d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+                d="M22.56 12.25c0-.78-.07-1.53-.20-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
             />
             <path
                 fill="#34A853"
@@ -44,7 +44,7 @@ function GoogleIcon(props: React.SVGProps<SVGSVGElement>) {
             />
             <path
                 fill="#EA4335"
-                d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
+                d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.60 3.30-4.53 6.16-4.53z"
             />
         </svg>
     )
@@ -68,36 +68,115 @@ function MicrosoftIcon(props: React.SVGProps<SVGSVGElement>) {
 }
 
 export default function LoginPage() {
+    const router = useRouter()
+    const searchParams = useSearchParams()
+    const { toast } = useToast()
+    const { data: session, status } = useSession()
     const [email, setEmail] = useState("")
     const [password, setPassword] = useState("")
-    const [error, setError] = useState("")
-    const router = useRouter()
+    const [loading, setLoading] = useState(false)
+    const [error, setError] = useState<string | null>(null)
 
-  const handleLogin = async (e: React.FormEvent) => {
-      e.preventDefault()
-      
-      try {
-          
-          const result = await login(email, password)
-          
-          localStorage.setItem("token", result.data.token)
-          router.push("/dashboard")
-      } catch (err: any) {
-          console.error("Error in handleLogin:", err)
-          setError(err.message || "Login failed")
-      }
-  }
+    useEffect(() => {
+        const errorParam = searchParams.get("error")
+        if (errorParam) {
+            const errorMessage = decodeURIComponent(errorParam)
+            setError(errorMessage)
+            toast({
+                title: "Error",
+                description: errorMessage,
+                variant: "destructive",
+            })
+        }
+
+        if (searchParams.get("subscription_error")) {
+            const errorMessage = "Please complete your subscription to sign in."
+            setError(errorMessage)
+            toast({
+                title: "Error",
+                description: errorMessage,
+                variant: "destructive",
+            })
+        }
+
+        // Store token and classroomId after OAuth login
+        if (status === "authenticated" && session?.appToken && session?.classroomId) {
+            console.log("Storing OAuth session data:", {
+                token: session.appToken,
+                classroomId: session.classroomId,
+            })
+            localStorage.setItem("token", session.appToken)
+            localStorage.setItem("classroomId", session.classroomId)
+            router.push("/dashboard/assignments")
+        }
+    }, [searchParams, toast, session, status, router])
 
     const handleOAuth = async (provider: "google" | "microsoft") => {
-        
-         await signIn(provider)
-        // window.location.href = `${process.env.NEXT_PUBLIC_APP_URL}/api/auth/${provider}`
+        setLoading(true)
+        setError(null)
+        try {
+            const providerIdMap = {
+                google: "google",
+                microsoft: "azure-ad",
+            }
+            console.log(
+                `Initiating ${provider} OAuth with callbackUrl: /dashboard/assignments`
+            )
+            const callbackUrl = "/dashboard/assignments"
+            const result = await signIn(providerIdMap[provider], {
+                redirect: false,
+                callbackUrl,
+            })
+            console.log("OAuth signIn result:", result)
 
+            if (result?.url) {
+                console.log("Redirecting to OAuth provider:", result.url)
+                window.location.href = result.url
+            } else if (result?.error) {
+                throw new Error(result.error)
+            } else {
+                throw new Error("No OAuth URL returned")
+            }
+        } catch (err: any) {
+            console.error("OAuth error:", err)
+            setError(err.message || "Authentication failed. Please try again.")
+            toast({
+                title: "Error",
+                description: err.message || "Authentication failed. Please try again.",
+                variant: "destructive",
+            })
+            setLoading(false)
+        }
+    }
+
+    const handleLogin = async (e: React.FormEvent) => {
+        e.preventDefault()
+        setLoading(true)
+        setError(null)
+
+        try {
+            const result = await login(email, password)
+            console.log("Credentials login result:", result)
+            if (!result.data?.token || !result.data?.classroomId) {
+                throw new Error("Missing token or classroomId in login response")
+            }
+            localStorage.setItem("token", result.data.token)
+            localStorage.setItem("classroomId", result.data.classroomId)
+            router.push("/dashboard/assignments")
+        } catch (err: any) {
+            console.error("Error in handleLogin:", err)
+            setError(err.message || "Login failed")
+            toast({
+                title: "Error",
+                description: err.message || "Login failed",
+                variant: "destructive",
+            })
+            setLoading(false)
+        }
     }
 
     return (
         <div className="flex min-h-screen bg-gray-50 dark:bg-gray-900">
-            {/* Left side - Benefits and testimonials (hidden on mobile) */}
             <div className="hidden w-1/2 flex-col justify-between bg-mint/20 p-10 dark:bg-gray-800/50 lg:flex">
                 <div>
                     <Logo size="lg" />
@@ -170,7 +249,6 @@ export default function LoginPage() {
                 </div>
             </div>
 
-            {/* Right side - Login form */}
             <div className="flex w-full flex-col items-center justify-center px-4 py-12 lg:w-1/2">
                 <Card className="w-full max-w-md border-0 shadow-lg lg:shadow-xl">
                     <CardHeader className="space-y-1">
@@ -190,14 +268,16 @@ export default function LoginPage() {
                                 variant="outline"
                                 className="w-full"
                                 onClick={() => handleOAuth("google")}
+                                disabled={loading}
                             >
-                                <GoogleIcon className="mr-2 h-5 w-5 text-[#4285F4]" />
+                                <GoogleIcon className="mr-2 h-5 w-5" />
                                 Google
                             </Button>
                             <Button
                                 variant="outline"
                                 className="w-full"
                                 onClick={() => handleOAuth("microsoft")}
+                                disabled={loading}
                             >
                                 <MicrosoftIcon className="mr-2 h-5 w-5 text-[#00A4EF]" />
                                 Microsoft
@@ -248,14 +328,19 @@ export default function LoginPage() {
                             {error && (
                                 <p className="text-red-500 text-sm">{error}</p>
                             )}
-                            <Button type="submit" className="w-full" size="lg">
-                                Log in
+                            <Button
+                                type="submit"
+                                className="w-full"
+                                size="lg"
+                                disabled={loading}
+                            >
+                                {loading ? "Logging in..." : "Log in"}
                             </Button>
                         </form>
                     </CardContent>
                     <CardFooter className="flex flex-col space-y-4 border-t pt-4">
                         <div className="text-center text-sm">
-                            Don&apos;t have an account?{" "}
+                            Don't have an account?{" "}
                             <Link
                                 href="/signup"
                                 className="font-medium text-primary underline-offset-4 hover:underline"
@@ -264,8 +349,8 @@ export default function LoginPage() {
                             </Link>
                         </div>
                         <div className="flex items-center justify-center text-xs text-gray-500">
-                            <ShieldCheck className="mr-1 h-3 w-3" /> Secure
-                            login
+                            <ShieldCheck className="mr-1 h-3 w-3" />
+                            Secure login
                         </div>
                     </CardFooter>
                 </Card>

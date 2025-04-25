@@ -2,7 +2,7 @@
 import Link from "next/link"
 import type React from "react"
 import { useState, useEffect } from "react"
-import { useSearchParams } from "next/navigation"
+import { useSearchParams, useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import {
     Card,
@@ -28,8 +28,9 @@ import {
     ShieldCheck,
 } from "lucide-react"
 import { Logo } from "@/components/logo"
+import { signIn, useSession } from "next-auth/react"
+import { useToast } from "@/hooks/use-toast"
 
-// Custom icon components
 function GoogleIcon(props: React.SVGProps<SVGSVGElement>) {
     return (
         <svg
@@ -89,19 +90,86 @@ export default function SignupPage() {
     const [error, setError] = useState<string | null>(null)
     const [loading, setLoading] = useState(false)
     const searchParams = useSearchParams()
+    const { toast } = useToast()
+    const { data: session, status } = useSession()
+    const router = useRouter()
 
     useEffect(() => {
         if (searchParams.get("cancelled")) {
-            setError(
-                "Checkout was cancelled. Please try again or select a different plan."
-            )
+            const token = localStorage.getItem("token")
+            if (token) {
+                setStep(2)
+                setError("Payment failed or was cancelled. Please try again.")
+            } else {
+                setStep(1)
+                setError("Please sign up to select a plan.")
+            }
         }
-        // Redirect to Step 1 if no token exists when trying to access Step 2
+
+        if (
+            status === "authenticated" &&
+            session?.appToken &&
+            session?.classroomId &&
+            step === 1
+        ) {
+            console.log("OAuth signup success:", { session })
+            localStorage.setItem("token", session.appToken)
+            localStorage.setItem("classroomId", session.classroomId)
+            setStep(2)
+            toast({
+                title: "Success",
+                description: "Signed up successfully. Please select a plan.",
+            })
+        }
+
         if (step === 2 && !localStorage.getItem("token")) {
             setError("Please sign up to select a plan.")
             setStep(1)
         }
-    }, [searchParams, step])
+    }, [searchParams, step, session, status, toast])
+
+    const handleOAuth = async (provider: "google" | "microsoft") => {
+        setLoading(true)
+        setError(null)
+        try {
+            const providerIdMap = {
+                google: "google",
+                microsoft: "azure-ad",
+            }
+            // Set cookie for action
+            document.cookie =
+                "auth_action=signup; path=/; max-age=300; SameSite=Lax"
+            const callbackUrl = `http://localhost:3000/signup`
+            console.log(
+                `Initiating ${provider} OAuth with callbackUrl:`,
+                callbackUrl
+            )
+            const result = await signIn(providerIdMap[provider], {
+                redirect: false,
+                callbackUrl,
+            })
+            console.log("OAuth signIn result:", result)
+            if (result?.url) {
+                window.location.href = result.url
+            } else if (result?.error) {
+                throw new Error(result.error)
+            } else {
+                throw new Error("No OAuth URL returned")
+            }
+        } catch (err: any) {
+            console.error("OAuth error:", err)
+            // Clear cookie on error
+            document.cookie = "auth_action=; path=/; max-age=0; SameSite=Lax"
+            setError(err.message || "Authentication failed. Please try again.")
+            toast({
+                title: "Error",
+                description:
+                    err.message || "Authentication failed. Please try again.",
+                variant: "destructive",
+            })
+            setLoading(false)
+        }
+    }
 
     const handleSignup = async (e: React.FormEvent) => {
         e.preventDefault()
@@ -121,21 +189,29 @@ export default function SignupPage() {
                     }),
                 }
             )
-
             const data = await response.json()
+            console.log("Signup response:", data)
             if (!data.success) {
                 throw new Error(data.error || "Failed to sign up")
             }
-
-           
-            
-
-            localStorage.setItem("token", data.token)
+            const { token, classroomId } = data
+            localStorage.setItem("token", token)
+            localStorage.setItem("classroomId", classroomId)
             setStep(2)
+            toast({
+                title: "Success",
+                description: "Signed up successfully. Please select a plan.",
+            })
         } catch (err: any) {
+            console.error("Signup error:", err)
             setError(err.message || "Failed to sign up. Please try again.")
+            toast({
+                title: "Error",
+                description:
+                    err.message || "Failed to sign up. Please try again.",
+                variant: "destructive",
+            })
             localStorage.removeItem("token")
-        } finally {
             setLoading(false)
         }
     }
@@ -181,20 +257,28 @@ export default function SignupPage() {
                     }),
                 }
             )
-
             const data = await response.json()
+            console.log("Update plan response:", data)
             if (!data.success) {
                 throw new Error(data.error || "Failed to update plan")
             }
-
             window.location.href = paymentLinks[selectedPlan][billingCycle]
         } catch (err: any) {
+            console.error("Checkout error:", err)
             setError(
-                err.message ||
-                    "Failed to initiate checkout. Please sign in again."
+                err.message || "Failed to initiate checkout. Please try again."
             )
-            localStorage.removeItem("token")
-            setStep(1)
+            toast({
+                title: "Error",
+                description:
+                    err.message ||
+                    "Failed to initiate checkout. Please try again.",
+                variant: "destructive",
+            })
+            if (err.message.includes("Unauthorized")) {
+                localStorage.removeItem("token")
+                setStep(1)
+            }
         } finally {
             setLoading(false)
         }
@@ -299,7 +383,6 @@ export default function SignupPage() {
     return (
         <div className="flex min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 px-4 py-12">
             <div className="mx-auto w-full max-w-5xl grid md:grid-cols-5 gap-6">
-                {/* Left side - Benefits */}
                 <div className="md:col-span-2 hidden md:flex flex-col justify-center space-y-8">
                     <div className="space-y-2">
                         <h2 className="text-2xl font-bold">
@@ -366,7 +449,6 @@ export default function SignupPage() {
                     </div>
                 </div>
 
-                {/* Right side - Signup form */}
                 <Card className="md:col-span-3 w-full">
                     <CardHeader className="space-y-1">
                         <div className="flex justify-center">
@@ -386,7 +468,7 @@ export default function SignupPage() {
                     </CardHeader>
                     <CardContent className="space-y-4">
                         {step === 1 ? (
-                            <form onSubmit={handleSignup} className="space-y-4">
+                            <div className="space-y-4">
                                 {error && (
                                     <p className="text-red-500 text-sm">
                                         {error}
@@ -396,6 +478,8 @@ export default function SignupPage() {
                                     <Button
                                         variant="outline"
                                         className="w-full"
+                                        onClick={() => handleOAuth("google")}
+                                        disabled={loading}
                                     >
                                         <GoogleIcon className="mr-2 h-5 w-5" />
                                         Google
@@ -403,6 +487,8 @@ export default function SignupPage() {
                                     <Button
                                         variant="outline"
                                         className="w-full"
+                                        onClick={() => handleOAuth("microsoft")}
+                                        disabled={loading}
                                     >
                                         <MicrosoftIcon className="mr-2 h-5 w-5" />
                                         Microsoft
@@ -418,111 +504,118 @@ export default function SignupPage() {
                                         </span>
                                     </div>
                                 </div>
-                                <div className="space-y-4">
-                                    <div className="space-y-2">
-                                        <Label htmlFor="name">Full Name</Label>
-                                        <Input
-                                            id="name"
-                                            name="name"
-                                            placeholder="John Smith"
-                                            required
-                                            value={name}
-                                            onChange={(e) =>
-                                                setName(e.target.value)
-                                            }
-                                        />
-                                    </div>
-                                    <div className="space-y-2">
-                                        <Label htmlFor="email">
-                                            Work or .edu email
-                                        </Label>
-                                        <Input
-                                            id="email"
-                                            name="email"
-                                            type="email"
-                                            placeholder="john@edu.com"
-                                            required
-                                            value={email}
-                                            onChange={(e) =>
-                                                setEmail(e.target.value)
-                                            }
-                                        />
-                                    </div>
-                                    <div className="space-y-2">
-                                        <Label htmlFor="password">
-                                            Password
-                                        </Label>
-                                        <Input
-                                            id="password"
-                                            name="password"
-                                            type="password"
-                                            placeholder="••••••••"
-                                            required
-                                        />
-                                        <p className="text-xs text-muted-foreground">
-                                            Password must be at least 8
-                                            characters
-                                        </p>
-                                    </div>
-                                </div>
-                                <div className="rounded-lg border border-primary/20 bg-primary/5 p-4">
-                                    <h3 className="font-medium mb-2 flex items-center">
-                                        <Sparkles className="h-4 w-4 mr-2 text-primary" />
-                                        Your 3-day trial empowers you with:
-                                    </h3>
-                                    <ul className="space-y-2 text-sm">
-                                        <li className="flex items-center">
-                                            <CheckIcon className="mr-2 h-4 w-4 text-green-500" />
-                                            <span>
-                                                <strong>
-                                                    30 grading credits
-                                                </strong>{" "}
-                                                to streamline your assessment
-                                                workflow
-                                            </span>
-                                        </li>
-                                        <li className="flex items-center">
-                                            <CheckIcon className="mr-2 h-4 w-4 text-green-500" />
-                                            <span>
-                                                Complete access to all teaching
-                                                enhancement tools
-                                            </span>
-                                        </li>
-                                        <li className="flex items-center">
-                                            <CheckIcon className="mr-2 h-4 w-4 text-green-500" />
-                                            <span>
-                                                Flexible cancellation — you
-                                                maintain control
-                                            </span>
-                                        </li>
-                                    </ul>
-                                </div>
-                                <Button
-                                    className="w-full py-6 text-base"
-                                    type="submit"
-                                    disabled={loading}
+                                <form
+                                    onSubmit={handleSignup}
+                                    className="space-y-4"
                                 >
-                                    {loading
-                                        ? "Processing..."
-                                        : "Start Your Free, Effortless Teaching Journey"}
-                                </Button>
-                                <p className="text-xs text-center text-muted-foreground">
-                                    By continuing, you agree to our{" "}
-                                    <Link
-                                        href="/terms"
-                                        className="underline underline-offset-2"
+                                    <div className="space-y-4">
+                                        <div className="space-y-2">
+                                            <Label htmlFor="name">
+                                                Full Name
+                                            </Label>
+                                            <Input
+                                                id="name"
+                                                name="name"
+                                                placeholder="John Smith"
+                                                required
+                                                value={name}
+                                                onChange={(e) =>
+                                                    setName(e.target.value)
+                                                }
+                                            />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label htmlFor="email">
+                                                Work or .edu email
+                                            </Label>
+                                            <Input
+                                                id="email"
+                                                name="email"
+                                                type="email"
+                                                placeholder="john@edu.com"
+                                                required
+                                                value={email}
+                                                onChange={(e) =>
+                                                    setEmail(e.target.value)
+                                                }
+                                            />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label htmlFor="password">
+                                                Password
+                                            </Label>
+                                            <Input
+                                                id="password"
+                                                name="password"
+                                                type="password"
+                                                placeholder="••••••••"
+                                                required
+                                            />
+                                            <p className="text-xs text-muted-foreground">
+                                                Password must be at least 8
+                                                characters
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <div className="rounded-lg border border-primary/20 bg-primary/5 p-4">
+                                        <h3 className="font-medium mb-2 flex items-center">
+                                            <Sparkles className="h-4 w-4 mr-2 text-primary" />
+                                            Your 3-day trial empowers you with:
+                                        </h3>
+                                        <ul className="space-y-2 text-sm">
+                                            <li className="flex items-center">
+                                                <CheckIcon className="mr-2 h-4 w-4 text-green-500" />
+                                                <span>
+                                                    <strong>
+                                                        30 grading credits
+                                                    </strong>{" "}
+                                                    to streamline your
+                                                    assessment workflow
+                                                </span>
+                                            </li>
+                                            <li className="flex items-center">
+                                                <CheckIcon className="mr-2 h-4 w-4 text-green-500" />
+                                                <span>
+                                                    Complete access to all
+                                                    teaching enhancement tools
+                                                </span>
+                                            </li>
+                                            <li className="flex items-center">
+                                                <CheckIcon className="mr-2 h-4 w-4 text-green-500" />
+                                                <span>
+                                                    Flexible cancellation — you
+                                                    maintain control
+                                                </span>
+                                            </li>
+                                        </ul>
+                                    </div>
+                                    <Button
+                                        className="w-full py-6 text-base"
+                                        type="submit"
+                                        disabled={loading}
                                     >
-                                        Terms of Service
-                                    </Link>{" "}
-                                    and{" "}
-                                    <Link
-                                        href="/privacy"
-                                        className="underline underline-offset-2"
-                                    >
-                                        Privacy Policy
-                                    </Link>
-                                </p>
-                            </form>
+                                        {loading
+                                            ? "Processing..."
+                                            : "Start Your Free, Effortless Teaching Journey"}
+                                    </Button>
+                                    <p className="text-xs text-center text-muted-foreground">
+                                        By continuing, you agree to our{" "}
+                                        <Link
+                                            href="/terms"
+                                            className="underline underline-offset-2"
+                                        >
+                                            Terms of Service
+                                        </Link>{" "}
+                                        and{" "}
+                                        <Link
+                                            href="/privacy"
+                                            className="underline underline-offset-2"
+                                        >
+                                            Privacy Policy
+                                        </Link>
+                                    </p>
+                                </form>
+                            </div>
                         ) : (
                             <div className="space-y-6">
                                 {error && (

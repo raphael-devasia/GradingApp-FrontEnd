@@ -29,9 +29,7 @@ export class ClassRoomUseCases {
         return this.classRoomRepository.addCoTeacher(classroomId, name, email)
     }
 
-    async getStudents(
-        classroomId?: string
-    ): Promise<
+    async getStudents(classroomId?: string): Promise<
         ApiResponse<
             {
                 id: string
@@ -46,9 +44,7 @@ export class ClassRoomUseCases {
         return this.classRoomRepository.getStudents(classroomId)
     }
 
-    async getCoTeachers(
-        classroomId?: string
-    ): Promise<
+    async getCoTeachers(classroomId?: string): Promise<
         ApiResponse<
             {
                 id: string

@@ -3,6 +3,7 @@ import type { Metadata } from "next"
 import { Inter, Onest } from "next/font/google"
 import "./globals.css"
 import { Toaster } from "@/components/ui/toaster"
+import { AuthProvider } from "./providers"
 
 // Load Onest font for headings
 const onest = Onest({
@@ -30,11 +31,13 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en">
-      <body className={`${onest.variable} ${inter.variable} font-sans`}>
-        {children}
-        <Toaster />
-      </body>
-    </html>
+      <html lang="en">
+          <body className={`${onest.variable} ${inter.variable} font-sans`}>
+              <AuthProvider>
+                  {children}
+                  <Toaster />
+              </AuthProvider>
+          </body>
+      </html>
   )
 }

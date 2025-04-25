@@ -64,8 +64,13 @@ export function StudentsList({ classrooms }: StudentsListProps) {
                 const response = await classRoomUseCases.getStudents(
                     classFilter !== "all" ? classFilter : undefined
                 )
+               
+                
                 if (!response.success)
                     throw new Error("Failed to fetch students")
+
+                console.log("the students are ", response.data)
+                
                 setStudents(response.data)
             } catch (err: any) {
                 setError(err.message)

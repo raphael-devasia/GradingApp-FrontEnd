@@ -10,12 +10,14 @@ interface ApiResponse<T> {
 export interface ClassRoomRepository {
     getClassRooms(): Promise<ApiResponse<Classroom[]>>
     addStudent(
-        classroomId: string,
+        classroomId?: string,
+        selectedClass: string,
         name: string,
         email: string
     ): Promise<ApiResponse<{ id: string; name: string; email: string }>>
     addCoTeacher(
-        classroomId: string | undefined,
+        classroomId?: string,
+        selectedClass: string | undefined,
         name: string,
         email: string
     ): Promise<ApiResponse<{ id: string; name: string; email: string }>>
@@ -83,9 +85,7 @@ export class HttpClassRoomRepository implements ClassRoomRepository {
         // Save the first classroom ID to localStorage if available
         if (result.success && result.data.length > 0) {
             localStorage.setItem("classroomId", result.data[0].id)
-        } else {
-            localStorage.removeItem("classroomId") // Clear if no classrooms
-        }
+        } 
         return result
     }
 
@@ -186,6 +186,8 @@ export class HttpClassRoomRepository implements ClassRoomRepository {
                 Authorization: `Bearer ${token}`,
             },
         })
+        
+        
         if (!response.ok) {
             if (response.status === 401) {
                 localStorage.removeItem("token")

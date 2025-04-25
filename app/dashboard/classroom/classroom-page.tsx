@@ -23,6 +23,13 @@ import {
     CardTitle,
 } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select"
 import { StudentsList } from "./students-list"
 import { CoTeachersList } from "./co-teachers-list"
 import { useToast } from "@/components/ui/toast"
@@ -33,6 +40,8 @@ import { HttpClassRoomRepository } from "@/repositories/classRoom-repository"
 export default function ClassroomPage() {
     const { toast } = useToast()
     const [classrooms, setClassrooms] = useState<Classroom[]>([])
+    const [selectedStudentClass, setSelectedStudentClass] = useState("English")
+    const [selectedCoTeacherClass, setSelectedCoTeacherClass] = useState("all")
     const [stats, setStats] = useState({
         totalStudents: 0,
         activeClasses: 0,
@@ -50,13 +59,15 @@ export default function ClassroomPage() {
             try {
                 setLoading(true)
                 const response = await classRoomUseCases.getClassRooms()
-
-                if (!response.success)
-                    throw new Error("Failed to fetch classrooms")
-                const data = response.data
+                console.log("getClassRooms response:", response)
+                if (!response.success) {
+                    throw new Error(
+                        response.message || "Failed to fetch classrooms"
+                    )
+                }
+                const data = Array.isArray(response.data) ? response.data : []
                 setClassrooms(data)
-
-                // Calculate stats
+                console.log("Set classrooms:", data)
                 const totalStudents = data.reduce(
                     (sum, cls) => sum + cls.studentIds.length,
                     0
@@ -73,6 +84,7 @@ export default function ClassroomPage() {
                     submissionsThisMonth,
                 })
             } catch (err: any) {
+                console.error("Error fetching classrooms:", err.message)
                 setError(err.message)
                 toast({
                     title: "Error",
@@ -91,22 +103,39 @@ export default function ClassroomPage() {
         const formData = new FormData(e.currentTarget)
         const name = formData.get("student-name") as string
         const email = formData.get("student-email") as string
-        const classroomId = formData.get("student-class") as string
+
+        if (!selectedStudentClass) {
+            toast({
+                title: "Error",
+                description: "Please select a class.",
+                variant: "destructive",
+            })
+            return
+        }
+
+        
 
         try {
             const response = await classRoomUseCases.addStudent(
-                classroomId,
+                selectedStudentClass,
                 name,
                 email
             )
-            if (!response.success) throw new Error("Failed to add student")
+            if (!response.success)
+                throw new Error(response.message || "Failed to add student")
             toast({
                 title: "Student added",
                 description:
                     "The student has been added to your class successfully.",
             })
-            // Refresh students list (handled by StudentsList)
+            const updatedResponse = await classRoomUseCases.getClassRooms()
+            const updatedData = Array.isArray(updatedResponse.data)
+                ? updatedResponse.data
+                : []
+            setClassrooms(updatedData)
+            setSelectedStudentClass("English")
         } catch (err: any) {
+            console.error("Error adding student:", err.message)
             setError(err.message)
             toast({
                 title: "Error",
@@ -121,22 +150,44 @@ export default function ClassroomPage() {
         const formData = new FormData(e.currentTarget)
         const name = formData.get("name") as string
         const email = formData.get("email") as string
-        const classroomId = formData.get("class") as string
+
+        let classroomId: string | undefined
+        if (selectedCoTeacherClass !== "all") {
+            const classroom = classrooms.find(
+                (cls) => cls.name === selectedCoTeacherClass
+            )
+            if (!classroom) {
+                toast({
+                    title: "Error",
+                    description: `Class "${selectedCoTeacherClass}" not found.`,
+                    variant: "destructive",
+                })
+                return
+            }
+            classroomId = classroom.id
+        }
 
         try {
             const response = await classRoomUseCases.addCoTeacher(
-                classroomId === "all" ? undefined : classroomId,
+                classroomId,
                 name,
                 email
             )
-            if (!response.success) throw new Error("Failed to add co-teacher")
+            if (!response.success)
+                throw new Error(response.message || "Failed to add co-teacher")
             toast({
                 title: "Invitation sent",
                 description:
                     "The co-teacher invitation has been sent successfully.",
             })
-            // Refresh co-teachers list (handled by CoTeachersList)
+            const updatedResponse = await classRoomUseCases.getClassRooms()
+            const updatedData = Array.isArray(updatedResponse.data)
+                ? updatedResponse.data
+                : []
+            setClassrooms(updatedData)
+            setSelectedCoTeacherClass("all")
         } catch (err: any) {
+            console.error("Error adding co-teacher:", err.message)
             setError(err.message)
             toast({
                 title: "Error",
@@ -204,18 +255,35 @@ export default function ClassroomPage() {
                                 <Label htmlFor="class" className="text-right">
                                     Class
                                 </Label>
-                                <select
-                                    id="class"
-                                    name="class"
-                                    className="col-span-3 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                                <Select
+                                    value={selectedCoTeacherClass}
+                                    onValueChange={setSelectedCoTeacherClass}
                                 >
-                                    <option value="all">All Classes</option>
-                                    {classrooms.map((cls) => (
-                                        <option key={cls.id} value={cls.id}>
-                                            {cls.name} ({cls.code})
-                                        </option>
-                                    ))}
-                                </select>
+                                    <SelectTrigger
+                                        id="class"
+                                        name="class"
+                                        className="col-span-3"
+                                    >
+                                        <SelectValue placeholder="Select a class" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="all">
+                                            All Classes
+                                        </SelectItem>
+                                        <SelectItem value="English">
+                                            English
+                                        </SelectItem>
+                                        <SelectItem value="History">
+                                            History
+                                        </SelectItem>
+                                        <SelectItem value="Math">
+                                            Math
+                                        </SelectItem>
+                                        <SelectItem value="Science">
+                                            Science
+                                        </SelectItem>
+                                    </SelectContent>
+                                </Select>
                             </div>
                             <DialogFooter>
                                 <Button type="submit">Send Invitation</Button>
@@ -348,21 +416,34 @@ export default function ClassroomPage() {
                                                 >
                                                     Class
                                                 </Label>
-                                                <select
-                                                    id="student-class"
-                                                    name="student-class"
-                                                    className="col-span-3 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                                                <Select
+                                                    value={selectedStudentClass}
+                                                    onValueChange={
+                                                        setSelectedStudentClass
+                                                    }
                                                 >
-                                                    {classrooms.map((cls) => (
-                                                        <option
-                                                            key={cls.id}
-                                                            value={cls.id}
-                                                        >
-                                                            {cls.name} (
-                                                            {cls.code})
-                                                        </option>
-                                                    ))}
-                                                </select>
+                                                    <SelectTrigger
+                                                        id="student-class"
+                                                        name="student-class"
+                                                        className="col-span-3"
+                                                    >
+                                                        <SelectValue placeholder="Select a class" />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        <SelectItem value="English">
+                                                            English
+                                                        </SelectItem>
+                                                        <SelectItem value="History">
+                                                            History
+                                                        </SelectItem>
+                                                        <SelectItem value="Math">
+                                                            Math
+                                                        </SelectItem>
+                                                        <SelectItem value="Science">
+                                                            Science
+                                                        </SelectItem>
+                                                    </SelectContent>
+                                                </Select>
                                             </div>
                                             <DialogFooter>
                                                 <Button type="submit">
@@ -459,23 +540,37 @@ export default function ClassroomPage() {
                                             >
                                                 Class
                                             </Label>
-                                            <select
-                                                id="class"
-                                                name="class"
-                                                className="col-span-3 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                                            <Select
+                                                value={selectedCoTeacherClass}
+                                                onValueChange={
+                                                    setSelectedCoTeacherClass
+                                                }
                                             >
-                                                <option value="all">
-                                                    All Classes
-                                                </option>
-                                                {classrooms.map((cls) => (
-                                                    <option
-                                                        key={cls.id}
-                                                        value={cls.id}
-                                                    >
-                                                        {cls.name} ({cls.code})
-                                                    </option>
-                                                ))}
-                                            </select>
+                                                <SelectTrigger
+                                                    id="class"
+                                                    name="class"
+                                                    className="col-span-3"
+                                                >
+                                                    <SelectValue placeholder="Select a class" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="all">
+                                                        All Classes
+                                                    </SelectItem>
+                                                    <SelectItem value="English">
+                                                        English
+                                                    </SelectItem>
+                                                    <SelectItem value="History">
+                                                        History
+                                                    </SelectItem>
+                                                    <SelectItem value="Math">
+                                                        Math
+                                                    </SelectItem>
+                                                    <SelectItem value="Science">
+                                                        Science
+                                                    </SelectItem>
+                                                </SelectContent>
+                                            </Select>
                                         </div>
                                         <DialogFooter>
                                             <Button type="submit">
