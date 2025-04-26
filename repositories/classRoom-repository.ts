@@ -1,6 +1,7 @@
 import { Classroom } from "@/types/classRoom"
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5050"
+const API_URL =
+    process.env.NEXT_PUBLIC_API_URL || "https://grading-app-five.vercel.app"
 
 interface ApiResponse<T> {
     success: boolean
@@ -21,9 +22,7 @@ export interface ClassRoomRepository {
         name: string,
         email: string
     ): Promise<ApiResponse<{ id: string; name: string; email: string }>>
-    getStudents(
-        classroomId?: string
-    ): Promise<
+    getStudents(classroomId?: string): Promise<
         ApiResponse<
             {
                 id: string
@@ -35,9 +34,7 @@ export interface ClassRoomRepository {
             }[]
         >
     >
-    getCoTeachers(
-        classroomId?: string
-    ): Promise<
+    getCoTeachers(classroomId?: string): Promise<
         ApiResponse<
             {
                 id: string
@@ -85,7 +82,7 @@ export class HttpClassRoomRepository implements ClassRoomRepository {
         // Save the first classroom ID to localStorage if available
         if (result.success && result.data.length > 0) {
             localStorage.setItem("classroomId", result.data[0].id)
-        } 
+        }
         return result
     }
 
@@ -159,9 +156,7 @@ export class HttpClassRoomRepository implements ClassRoomRepository {
         return response.json()
     }
 
-    async getStudents(
-        classroomId?: string
-    ): Promise<
+    async getStudents(classroomId?: string): Promise<
         ApiResponse<
             {
                 id: string
@@ -186,8 +181,7 @@ export class HttpClassRoomRepository implements ClassRoomRepository {
                 Authorization: `Bearer ${token}`,
             },
         })
-        
-        
+
         if (!response.ok) {
             if (response.status === 401) {
                 localStorage.removeItem("token")
@@ -200,9 +194,7 @@ export class HttpClassRoomRepository implements ClassRoomRepository {
         return response.json()
     }
 
-    async getCoTeachers(
-        classroomId?: string
-    ): Promise<
+    async getCoTeachers(classroomId?: string): Promise<
         ApiResponse<
             {
                 id: string

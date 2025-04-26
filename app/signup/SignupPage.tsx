@@ -149,7 +149,7 @@ export default function SignupPage() {
             // Set cookie for action
             document.cookie =
                 "auth_action=signup; path=/; max-age=300; SameSite=Lax"
-            const callbackUrl = `http://localhost:3000/signup`
+            const callbackUrl = `http://grading-app-front-end.vercel.app/signup`
             console.log(
                 `Initiating ${provider} OAuth with callbackUrl:`,
                 callbackUrl
@@ -188,13 +188,15 @@ export default function SignupPage() {
 
         try {
             const response = await fetch(
-                "http://localhost:5050/api/auth/signup",
+                "https://grading-app-five.vercel.app/api/auth/signup",
                 {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     ...(localStorage.getItem("token") && {
-            Authorization: `Bearer ${localStorage.getItem("token")}`
-          }),
+                        Authorization: `Bearer ${localStorage.getItem(
+                            "token"
+                        )}`,
+                    }),
                     body: JSON.stringify({
                         name,
                         email,
@@ -256,11 +258,10 @@ export default function SignupPage() {
             setStep(1)
             return
         }
-        
 
         try {
             const response = await fetch(
-                "http://localhost:5050/api/users/update-plan",
+                "https://grading-app-five.vercel.app/api/users/update-plan",
                 {
                     method: "POST",
                     headers: {

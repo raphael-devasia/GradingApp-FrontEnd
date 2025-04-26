@@ -1,326 +1,3 @@
-// import NextAuth, { NextAuthConfig, User, Session } from "next-auth"
-// import { JWT } from "next-auth/jwt"
-// import GoogleProvider from "next-auth/providers/google"
-// import AzureADProvider from "next-auth/providers/azure-ad"
-// import CredentialsProvider from "next-auth/providers/credentials"
-// import { cookies } from "next/headers"
-
-// // Extend User type to include action
-// declare module "next-auth" {
-//     interface User {
-//         action?: string
-//     }
-// }
-
-// // Extended token and session types
-// interface ExtendedToken extends JWT {
-//     accessToken?: string
-//     provider?: string
-//     appToken?: string
-//     classroomId?: string
-//     id?: string
-//     email?: string
-//     name?: string
-//     error?: string
-//     action?: string
-// }
-
-// interface ExtendedSession extends Session {
-//     accessToken?: string
-//     provider?: string
-//     appToken?: string
-//     classroomId?: string
-//     error?: string
-//     user: {
-//         id?: string
-//         name?: string
-//         email?: string
-//         image?: string
-//     }
-// }
-
-// // Validate environment variables
-// const requiredEnvVars = [
-//     "GOOGLE_CLIENT_ID",
-//     "GOOGLE_CLIENT_SECRET",
-//     "MICROSOFT_CLIENT_ID",
-//     "MICROSOFT_CLIENT_SECRET",
-//     "NEXTAUTH_SECRET",
-//     "NEXTAUTH_URL",
-//     "BACKEND_URL",
-// ]
-// for (const envVar of requiredEnvVars) {
-//     if (!process.env[envVar]) {
-//         console.error(`Missing environment variable: ${envVar}`)
-//         throw new Error(`Missing environment variable: ${envVar}`)
-//     }
-// }
-
-// export const authConfig: NextAuthConfig = {
-//     providers: [
-//         GoogleProvider({
-//             clientId: process.env.GOOGLE_CLIENT_ID as string,
-//             clientSecret: process.env.GOOGLE_CLIENT_SECRET as string,
-//         }),
-//         AzureADProvider({
-//             clientId: process.env.MICROSOFT_CLIENT_ID as string,
-//             clientSecret: process.env.MICROSOFT_CLIENT_SECRET as string,
-//             tenantId: "common",
-//         }),
-//         CredentialsProvider({
-//             name: "Credentials",
-//             credentials: {
-//                 email: { label: "Email", type: "email" },
-//                 password: { label: "Password", type: "password" },
-//             },
-//             async authorize(credentials) {
-//                 if (!credentials?.email || !credentials?.password) {
-//                     throw new Error("Email and password are required")
-//                 }
-
-//                 try {
-//                     const response = await fetch(
-//                         `${process.env.BACKEND_URL}/api/auth/signin`,
-//                         {
-//                             method: "POST",
-//                             headers: { "Content-Type": "application/json" },
-//                             body: JSON.stringify({
-//                                 email: credentials.email,
-//                                 password: credentials.password,
-//                             }),
-//                         }
-//                     )
-//                     const data = await response.json()
-//                     console.log("Credentials response:", data)
-
-//                     if (!data.success) {
-//                         throw new Error(data.message || "Invalid credentials")
-//                     }
-
-//                     return {
-//                         id: data.data.userId,
-//                         email: data.data.email,
-//                         name: `${data.data.firstName} ${data.data.lastName}`,
-//                         appToken: data.data.token,
-//                         classroomId: data.data.classroomId,
-//                     }
-//                 } catch (error: any) {
-//                     console.error("Credentials error:", error.message)
-//                     throw new Error(error.message || "Failed to authenticate")
-//                 }
-//             },
-//         }),
-//     ],
-//     callbacks: {
-//         async signIn({ user, account }) {
-//             console.log("signIn callback:", { user, account })
-//             if (
-//                 account?.provider === "google" ||
-//                 account?.provider === "azure-ad"
-//             ) {
-//                 const cookieStore = await cookies() // Await cookies()
-//                 const action = cookieStore.get("auth_action")?.value
-//                 user.action = action === "signup" ? "signup" : ""
-//                 console.log("signIn action set:", user.action)
-//                 // Clear cookie after use
-//                 cookieStore.set("auth_action", "", { maxAge: 0, path: "/" })
-//             }
-//             return true
-//         },
-//         async jwt({ token, account, user, trigger }) {
-//             console.log("JWT callback:", {
-//                 tokenKeys: token ? Object.keys(token) : "no token",
-//                 accountKeys: account ? Object.keys(account) : "no account",
-//                 userKeys: user ? Object.keys(user) : "no user",
-//                 trigger,
-//             })
-
-//             if (account && user) {
-//                 try {
-//                     token.accessToken = account.access_token
-//                     token.provider = account.provider
-//                     token.action = user.action || ""
-
-//                     console.log("Final action used:", token.action)
-
-//                     let providerId
-//                     if (account.provider === "google") {
-//                         providerId = account.providerAccountId || user.id
-//                     } else if (account.provider === "azure-ad") {
-//                         providerId =
-//                             account.providerAccountId ||
-//                             account.provider_account_id
-//                     } else {
-//                         providerId = user.id || account.providerAccountId
-//                     }
-
-//                     if (providerId && user.email) {
-//                         const oauthUrl = `${
-//                             process.env.BACKEND_URL
-//                         }/api/auth/oauth${
-//                             token.action ? `?action=${token.action}` : ""
-//                         }`
-//                         console.log("OAuth URL:", oauthUrl)
-
-//                         const response = await fetch(oauthUrl, {
-//                             method: "POST",
-//                             headers: { "Content-Type": "application/json" },
-//                             body: JSON.stringify({
-//                                 provider: account.provider,
-//                                 providerId: providerId,
-//                                 email: user.email,
-//                                 name: user.name,
-//                             }),
-//                         })
-
-//                         const data = await response.json()
-//                         console.log("OAuth backend response:", data)
-
-//                         if (response.status === 401) {
-//                             token.error =
-//                                 data.message ||
-//                                 "User not registered. Please sign up first."
-//                             return token
-//                         }
-
-//                         if (!response.ok) {
-//                             throw new Error(
-//                                 `Backend API error: ${response.status} - ${
-//                                     data.message || "Unknown error"
-//                                 }`
-//                             )
-//                         }
-
-//                         if (data.success && data.data) {
-//                             if (data.data.token)
-//                                 token.appToken = data.data.token
-//                             if (data.data.classroomId)
-//                                 token.classroomId = data.data.classroomId
-
-//                             if (data.data.user) {
-//                                 if (data.data.user._id)
-//                                     token.id = data.data.user._id
-//                                 if (data.data.user.email)
-//                                     token.email = data.data.user.email
-//                                 if (
-//                                     data.data.user.firstName &&
-//                                     data.data.user.lastName
-//                                 ) {
-//                                     token.name = `${data.data.user.firstName} ${data.data.lastName}`
-//                                 } else if (data.data.user.name) {
-//                                     token.name = data.data.user.name
-//                                 }
-//                             }
-//                         } else {
-//                             token.error =
-//                                 data.message || "Failed to process OAuth"
-//                             console.error(
-//                                 "OAuth error from backend:",
-//                                 data.message
-//                             )
-//                         }
-//                     }
-//                 } catch (error: any) {
-//                     console.error("JWT callback error:", error.message)
-//                     token.error = error.message || "Failed to process JWT"
-//                 }
-//             }
-
-//             return token
-//         },
-//         async session(params: {
-//             session: Session
-//             token: JWT
-//             user?: any
-//             newSession?: any
-//             trigger?: "update"
-//         }) {
-//             const { session, token } = params
-//             console.log("Session callback:", {
-//                 sessionKeys: session ? Object.keys(session) : "no session",
-//                 tokenKeys: token ? Object.keys(token) : "no token",
-//             })
-
-//             const extendedSession = session as ExtendedSession
-//             const extendedToken = token as ExtendedToken
-
-//             if (!extendedSession.user) {
-//                 extendedSession.user = {
-//                     id: undefined,
-//                     name: undefined,
-//                     email: undefined,
-//                     image: undefined,
-//                 }
-//             }
-
-//             extendedSession.accessToken = extendedToken.accessToken
-//             extendedSession.provider = extendedToken.provider
-//             extendedSession.appToken = extendedToken.appToken
-//             extendedSession.classroomId = extendedToken.classroomId
-//             extendedSession.error = extendedToken.error
-
-//             if (extendedToken.id) extendedSession.user.id = extendedToken.id
-//             if (extendedToken.name)
-//                 extendedSession.user.name = extendedToken.name
-//             if (extendedToken.email)
-//                 extendedSession.user.email = extendedToken.email
-
-//             return extendedSession
-//         },
-//         async redirect({ url, baseUrl }) {
-//             console.log("Redirect callback:", { url, baseUrl })
-
-//             if (url.includes("/api/auth/callback")) {
-//                 console.log("Handling OAuth callback:", { url })
-//                 const callbackUrl = new URL(url, baseUrl)
-//                 const error = callbackUrl.searchParams.get("error")
-
-//                 if (error) {
-//                     return `${baseUrl}/login?error=${encodeURIComponent(
-//                         decodeURIComponent(error)
-//                     )}`
-//                 }
-
-//                 const response = await fetch(`${baseUrl}/api/auth/session`, {
-//                     headers: {
-//                         cookie: `next-auth.session-token=${
-//                             callbackUrl.searchParams.get("session_token") || ""
-//                         }`,
-//                     },
-//                 })
-//                 const session = await response.json()
-
-//                 if (session.error) {
-//                     return `${baseUrl}/login?error=${encodeURIComponent(
-//                         session.error
-//                     )}`
-//                 }
-
-//                 if (
-//                     session.classroomId &&
-//                     !session.appToken?.includes("sub_active")
-//                 ) {
-//                     return `${baseUrl}/signup?token=${session.appToken}&classroomId=${session.classroomId}`
-//                 }
-
-//                 return `${baseUrl}/dashboard/assignments`
-//             }
-
-//             return url.startsWith(baseUrl) ? url : baseUrl
-//         },
-//     },
-//     pages: {
-//         signIn: "/login",
-//     },
-//     session: {
-//         strategy: "jwt",
-//     },
-//     secret: process.env.NEXTAUTH_SECRET,
-//     debug: process.env.NODE_ENV === "development",
-// }
-
-// export const { handlers, signIn, signOut, auth } = NextAuth(authConfig)
-
 import NextAuth, { NextAuthConfig, User, Session, Auth } from "next-auth"
 import { JWT } from "next-auth/jwt"
 import GoogleProvider from "next-auth/providers/google"
@@ -364,7 +41,6 @@ interface ExtendedSession extends Session {
     }
 }
 
-
 // Verify environment variables at startup
 const requiredEnvVars = [
     "GOOGLE_CLIENT_ID",
@@ -385,9 +61,9 @@ for (const envVar of requiredEnvVars) {
     }
 }
 // Additional validation for NEXTAUTH_URL
-if (process.env.NEXTAUTH_URL !== "http://localhost:3000") {
+if (process.env.NEXTAUTH_URL !== "http://grading-app-front-end.vercel.app") {
     console.warn(
-        `NEXTAUTH_URL is set to ${process.env.NEXTAUTH_URL}, expected http://localhost:3000. This may cause session issues.`
+        `NEXTAUTH_URL is set to ${process.env.NEXTAUTH_URL}, expected http://grading-app-front-end.vercel.app. This may cause session issues.`
     )
 }
 
@@ -476,16 +152,20 @@ export const authConfig: NextAuthConfig = {
             return true
         },
 
-        async jwt({ token, account, user, trigger }: {
-  token: JWT
-  user?: User
-  account?: Account | null
-  trigger?: "signIn" | "signUp" | "update" | "signOut"
-}) {
-           
-             if (trigger === "signOut") {
-                 return {} // Clear token on signout
-             }
+        async jwt({
+            token,
+            account,
+            user,
+            trigger,
+        }: {
+            token: JWT
+            user?: User
+            account?: Account | null
+            trigger?: "signIn" | "signUp" | "update" | "signOut"
+        }) {
+            if (trigger === "signOut") {
+                return {} // Clear token on signout
+            }
             if (account && user) {
                 try {
                     token.accessToken = account.access_token
