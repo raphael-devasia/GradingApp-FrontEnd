@@ -7,7 +7,7 @@ import {
     validateFullName,
     validatePassword,
 } from "../validators"
-const API_URL = process.env.API_URL || "http://localhost:5000"
+const API_URL = process.env.API_URL || "https://grading-app-five.vercel.app"
 
 /**
  * Sends a password reset link to the provided email address
@@ -50,8 +50,6 @@ export async function resetPassword(token: string, newPassword: string) {
 }
 
 export const login = async (email: string, password: string) => {
-   
-    
     console.log(API_URL)
     // Validate inputs
     const emailError = validateEmail(email)
@@ -66,8 +64,8 @@ export const login = async (email: string, password: string) => {
     })
     const data = await response.json()
     if (!response.ok) throw new Error(data.error || "Login failed")
-        console.log(data);
-        
+    console.log(data)
+
     return data // { user, token }
 }
 

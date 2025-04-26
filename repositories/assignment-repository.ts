@@ -4,7 +4,8 @@ interface ApiResponse<T> {
     data: T
 }
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"
+const API_URL =
+    process.env.NEXT_PUBLIC_API_URL || "https://grading-app-five.vercel.app"
 
 export default class HttpAssignmentRepository {
     private async getToken(): Promise<string> {
@@ -59,22 +60,22 @@ export default class HttpAssignmentRepository {
 
         return response.json()
     }
-   async getAssignments(): Promise<ApiResponse<Assignment[]>> {
-           const token = await this.getToken()
-           const response = await fetch(`${API_URL}/api/assignments/all`, {
-               method: "GET",
-               headers: {
-                   Authorization: `Bearer ${token}`,
-               },
-           })
-           if (!response.ok) {
-               if (response.status === 401) {
-                   localStorage.removeItem("token")
-                   window.location.href = "/login"
-               }
-               const error = await response.json()
-               throw new Error(error.message || "Failed to fetch assignments")
-           }
-           return response.json()
-       }
+    async getAssignments(): Promise<ApiResponse<Assignment[]>> {
+        const token = await this.getToken()
+        const response = await fetch(`${API_URL}/api/assignments/all`, {
+            method: "GET",
+            headers: {
+                Authorization: `Bearer ${token}`,
+            },
+        })
+        if (!response.ok) {
+            if (response.status === 401) {
+                localStorage.removeItem("token")
+                window.location.href = "/login"
+            }
+            const error = await response.json()
+            throw new Error(error.message || "Failed to fetch assignments")
+        }
+        return response.json()
+    }
 }
