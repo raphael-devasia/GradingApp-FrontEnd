@@ -1,7 +1,7 @@
 import { Course, CourseInput } from "@/types/course"
 
 const API_URL =
-    process.env.NEXT_PUBLIC_API_URL || "https://grading-app-five.vercel.app"
+    process.env.NEXT_PUBLIC_API_URL || "https://gradingapp-render.onrender.com"
 
 interface ApiResponse<T> {
     success: boolean

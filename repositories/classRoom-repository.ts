@@ -1,7 +1,7 @@
 import { Classroom } from "@/types/classRoom"
 
 const API_URL =
-    process.env.NEXT_PUBLIC_API_URL || "https://grading-app-five.vercel.app"
+    process.env.NEXT_PUBLIC_API_URL || "https://gradingapp-render.onrender.com"
 
 interface ApiResponse<T> {
     success: boolean

@@ -188,7 +188,7 @@ export default function SignupPage() {
 
         try {
             const response = await fetch(
-                "https://grading-app-five.vercel.app/api/auth/signup",
+                "https://gradingapp-render.onrender.com/api/auth/signup",
                 {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
@@ -261,7 +261,7 @@ export default function SignupPage() {
 
         try {
             const response = await fetch(
-                "https://grading-app-five.vercel.app/api/users/update-plan",
+                "https://gradingapp-render.onrender.com/api/users/update-plan",
                 {
                     method: "POST",
                     headers: {

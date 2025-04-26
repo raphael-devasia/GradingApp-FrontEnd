@@ -5,7 +5,7 @@ interface ApiResponse<T> {
 }
 
 const API_URL =
-    process.env.NEXT_PUBLIC_API_URL || "https://grading-app-five.vercel.app"
+    process.env.NEXT_PUBLIC_API_URL || "https://gradingapp-render.onrender.com"
 
 export default class HttpAssignmentRepository {
     private async getToken(): Promise<string> {

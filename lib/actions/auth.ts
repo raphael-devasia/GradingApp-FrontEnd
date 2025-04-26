@@ -7,7 +7,7 @@ import {
     validateFullName,
     validatePassword,
 } from "../validators"
-const API_URL = process.env.API_URL || "https://grading-app-five.vercel.app"
+const API_URL = process.env.API_URL || "https://gradingapp-render.onrender.com"
 
 /**
  * Sends a password reset link to the provided email address
