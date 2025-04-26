@@ -149,7 +149,7 @@ export default function SignupPage() {
             // Set cookie for action
             document.cookie =
                 "auth_action=signup; path=/; max-age=300; SameSite=Lax"
-            const callbackUrl = `http://grading-app-front-end.vercel.app/signup`
+            const callbackUrl = `https://gradeingapp.netlify.app/signup`
             console.log(
                 `Initiating ${provider} OAuth with callbackUrl:`,
                 callbackUrl

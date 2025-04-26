@@ -71,11 +71,11 @@ export async function createCheckoutSession(formData: FormData) {
             },
             success_url: `${
                 process.env.NEXT_PUBLIC_APP_URL ||
-                "http://grading-app-front-end.vercel.app"
+                "https://gradeingapp.netlify.app"
             }/dashboard/assignments?session_id={CHECKOUT_SESSION_ID}`,
             cancel_url: `${
                 process.env.NEXT_PUBLIC_APP_URL ||
-                "http://grading-app-front-end.vercel.app"
+                "https://gradeingapp.netlify.app"
             }/signup`,
         })
 

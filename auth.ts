@@ -61,9 +61,9 @@ for (const envVar of requiredEnvVars) {
     }
 }
 // Additional validation for NEXTAUTH_URL
-if (process.env.NEXTAUTH_URL !== "http://grading-app-front-end.vercel.app") {
+if (process.env.NEXTAUTH_URL !== "https://gradeingapp.netlify.app") {
     console.warn(
-        `NEXTAUTH_URL is set to ${process.env.NEXTAUTH_URL}, expected http://grading-app-front-end.vercel.app. This may cause session issues.`
+        `NEXTAUTH_URL is set to ${process.env.NEXTAUTH_URL}, expected https://gradeingapp.netlify.app. This may cause session issues.`
     )
 }
 
