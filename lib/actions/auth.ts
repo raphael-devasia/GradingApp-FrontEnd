@@ -7,7 +7,7 @@ import {
     validateFullName,
     validatePassword,
 } from "../validators"
-const API_URL = process.env.API_URL || "http://localhost:5050"
+const API_URL = process.env.API_URL || "https://www.junergypsy.online"
 
 /**
  * Sends a password reset link to the provided email address
