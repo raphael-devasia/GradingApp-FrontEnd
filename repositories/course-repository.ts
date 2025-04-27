@@ -1,7 +1,7 @@
 import { Course, CourseInput } from "@/types/course"
 
 const API_URL =
-    process.env.NEXT_PUBLIC_API_URL || "https://gradingapp-render.onrender.com"
+    process.env.NEXT_PUBLIC_API_URL || "https://www.junergypsy.online"
 
 interface ApiResponse<T> {
     success: boolean
