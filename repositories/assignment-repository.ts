@@ -4,8 +4,7 @@ interface ApiResponse<T> {
     data: T
 }
 
-const API_URL =
-    process.env.NEXT_PUBLIC_API_URL || "https://www.junergypsy.online"
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5050"
 
 export default class HttpAssignmentRepository {
     private async getToken(): Promise<string> {
@@ -20,7 +19,10 @@ export default class HttpAssignmentRepository {
     async generateAssignmentContent(
         assignmentInput: AssignmentInput
     ): Promise<{ data: Partial<Assignment> }> {
+        console.log('just before aclling the assignment generationm');
+        
         const token = await this.getToken()
+        console.log("just before aclling the assignment generationm",token)
         const response = await fetch(`${API_URL}/api/assignments/generate`, {
             method: "POST",
             headers: {

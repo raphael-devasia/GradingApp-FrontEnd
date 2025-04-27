@@ -188,7 +188,7 @@ export default function SignupPage() {
 
         try {
             const response = await fetch(
-                "https://www.junergypsy.online/api/auth/signup",
+                "http://localhost:5050/api/auth/signup",
                 {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
@@ -261,7 +261,7 @@ export default function SignupPage() {
 
         try {
             const response = await fetch(
-                "https://www.junergypsy.online/api/users/update-plan",
+                "http://localhost:5050/api/users/update-plan",
                 {
                     method: "POST",
                     headers: {
