@@ -99,7 +99,6 @@ export default function LoginPage() {
             })
         }
 
-        // Store token and classroomId after OAuth login
         if (
             status === "authenticated" &&
             session?.appToken &&
@@ -111,10 +110,11 @@ export default function LoginPage() {
             })
             localStorage.setItem("token", session.appToken)
             localStorage.setItem("classroomId", session.classroomId)
+            // Refresh token is stored in HTTP-only cookie by backend
             router.push("/dashboard/assignments")
         }
     }, [searchParams, toast, session, status, router])
-    // Add this useEffect to handle post-logout state
+
     useEffect(() => {
         const logoutMessage = searchParams.get("logout")
         if (logoutMessage === "success") {
@@ -179,6 +179,14 @@ export default function LoginPage() {
             }
             localStorage.setItem("token", result.data.token)
             localStorage.setItem("classroomId", result.data.classroomId)
+            // Set refresh token in HTTP-only cookie
+            await fetch("/api/auth/set-refresh-token", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    refreshToken: result.data.refreshToken,
+                }),
+            })
             router.push("/dashboard/assignments")
         } catch (err: any) {
             console.error("Error in handleLogin:", err)

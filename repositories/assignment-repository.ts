@@ -1,11 +1,11 @@
+import { fetchWithRefresh } from "@/lib/fetchWithRefresh"
 import { AssignmentInput, Assignment } from "@/types/assignment"
 interface ApiResponse<T> {
     success: boolean
     data: T
 }
 
-const API_URL =
-    process.env.NEXT_PUBLIC_API_URL || "https://www.junergypsy.online"
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5050"
 
 export default class HttpAssignmentRepository {
     private async getToken(): Promise<string> {
@@ -24,14 +24,17 @@ export default class HttpAssignmentRepository {
 
         const token = await this.getToken()
         console.log("just before aclling the assignment generationm", token)
-        const response = await fetch(`${API_URL}/api/assignments/generate`, {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-                Authorization: `Bearer ${token}`,
-            },
-            body: JSON.stringify(assignmentInput),
-        })
+        const response = await fetchWithRefresh(
+            `${API_URL}/api/assignments/generate`,
+            {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify(assignmentInput),
+            }
+        )
 
         if (!response.ok) {
             const error = await response.json()
@@ -47,7 +50,7 @@ export default class HttpAssignmentRepository {
         assignmentInput: AssignmentInput
     ): Promise<{ data: Assignment }> {
         const token = await this.getToken()
-        const response = await fetch(`${API_URL}/api/assignments`, {
+        const response = await fetchWithRefresh(`${API_URL}/api/assignments`, {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
@@ -65,12 +68,15 @@ export default class HttpAssignmentRepository {
     }
     async getAssignments(): Promise<ApiResponse<Assignment[]>> {
         const token = await this.getToken()
-        const response = await fetch(`${API_URL}/api/assignments/all`, {
-            method: "GET",
-            headers: {
-                Authorization: `Bearer ${token}`,
-            },
-        })
+        const response = await fetchWithRefresh(
+            `${API_URL}/api/assignments/all`,
+            {
+                method: "GET",
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                },
+            }
+        )
         if (!response.ok) {
             if (response.status === 401) {
                 localStorage.removeItem("token")

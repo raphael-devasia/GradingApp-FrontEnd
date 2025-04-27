@@ -1,7 +1,7 @@
+import { fetchWithRefresh } from "@/lib/fetchWithRefresh"
 import { Course, CourseInput } from "@/types/course"
 
-const API_URL =
-    process.env.NEXT_PUBLIC_API_URL || "https://www.junergypsy.online"
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5050"
 
 interface ApiResponse<T> {
     success: boolean
@@ -24,7 +24,7 @@ export class HttpCourseRepository implements CourseRepository {
 
     async createCourse(course: CourseInput): Promise<ApiResponse<Course>> {
         const token = await this.getToken()
-        const response = await fetch(`${API_URL}/api/courses`, {
+        const response = await fetchWithRefresh(`${API_URL}/api/courses`, {
             method: "POST",
             headers: {
                 Authorization: `Bearer ${token}`,
@@ -45,7 +45,7 @@ export class HttpCourseRepository implements CourseRepository {
 
     async getCourses(): Promise<ApiResponse<Course[]>> {
         const token = await this.getToken()
-        const response = await fetch(`${API_URL}/api/courses/all`, {
+        const response = await fetchWithRefresh(`${API_URL}/api/courses/all`, {
             method: "GET",
             headers: {
                 Authorization: `Bearer ${token}`,

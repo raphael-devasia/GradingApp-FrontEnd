@@ -1,7 +1,7 @@
+import { fetchWithRefresh } from "@/lib/fetchWithRefresh"
 import { Classroom } from "@/types/classRoom"
 
-const API_URL =
-    process.env.NEXT_PUBLIC_API_URL || "https://www.junergypsy.online"
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5050"
 
 interface ApiResponse<T> {
     success: boolean
@@ -63,12 +63,15 @@ export class HttpClassRoomRepository implements ClassRoomRepository {
 
     async getClassRooms(): Promise<ApiResponse<Classroom[]>> {
         const token = await this.getToken()
-        const response = await fetch(`${API_URL}/api/classrooms/all`, {
-            method: "GET",
-            headers: {
-                Authorization: `Bearer ${token}`,
-            },
-        })
+        const response = await fetchWithRefresh(
+            `${API_URL}/api/classrooms/all`,
+            {
+                method: "GET",
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                },
+            }
+        )
         if (!response.ok) {
             if (response.status === 401) {
                 localStorage.removeItem("token")
@@ -98,18 +101,21 @@ export class HttpClassRoomRepository implements ClassRoomRepository {
         if (!effectiveClassroomId) {
             throw new Error("No classroom ID provided or stored")
         }
-        const response = await fetch(`${API_URL}/api/classrooms/students`, {
-            method: "POST",
-            headers: {
-                Authorization: `Bearer ${token}`,
-                "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-                classroomId: effectiveClassroomId,
-                name,
-                email,
-            }),
-        })
+        const response = await fetchWithRefresh(
+            `${API_URL}/api/classrooms/students`,
+            {
+                method: "POST",
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                    classroomId: effectiveClassroomId,
+                    name,
+                    email,
+                }),
+            }
+        )
         if (!response.ok) {
             if (response.status === 401) {
                 localStorage.removeItem("token")
@@ -132,18 +138,21 @@ export class HttpClassRoomRepository implements ClassRoomRepository {
         const storedClassroomId = await this.getClassroomId()
         const effectiveClassroomId =
             classroomId !== undefined ? classroomId : storedClassroomId
-        const response = await fetch(`${API_URL}/api/classrooms/co-teachers`, {
-            method: "POST",
-            headers: {
-                Authorization: `Bearer ${token}`,
-                "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-                classroomId: effectiveClassroomId,
-                name,
-                email,
-            }),
-        })
+        const response = await fetchWithRefresh(
+            `${API_URL}/api/classrooms/co-teachers`,
+            {
+                method: "POST",
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                    classroomId: effectiveClassroomId,
+                    name,
+                    email,
+                }),
+            }
+        )
         if (!response.ok) {
             if (response.status === 401) {
                 localStorage.removeItem("token")
@@ -175,7 +184,7 @@ export class HttpClassRoomRepository implements ClassRoomRepository {
         const url = effectiveClassroomId
             ? `${API_URL}/api/classrooms/students?classroomId=${effectiveClassroomId}`
             : `${API_URL}/api/classrooms/students`
-        const response = await fetch(url, {
+        const response = await fetchWithRefresh(url, {
             method: "GET",
             headers: {
                 Authorization: `Bearer ${token}`,
@@ -213,7 +222,7 @@ export class HttpClassRoomRepository implements ClassRoomRepository {
         const url = effectiveClassroomId
             ? `${API_URL}/api/classrooms/co-teachers?classroomId=${effectiveClassroomId}`
             : `${API_URL}/api/classrooms/co-teachers`
-        const response = await fetch(url, {
+        const response = await fetchWithRefresh(url, {
             method: "GET",
             headers: {
                 Authorization: `Bearer ${token}`,

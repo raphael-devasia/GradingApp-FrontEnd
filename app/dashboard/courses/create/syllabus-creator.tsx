@@ -34,6 +34,7 @@ import { Switch } from "@/components/ui/switch"
 import { SyllabusPreview } from "./syllabus-preview"
 import { Syllabus } from "@/types/syllabus"
 import { toast } from "@/components/ui/use-toast"
+import { fetchWithRefresh } from "@/lib/fetchWithRefresh"
 
 interface SyllabusCreatorProps {
     courseDetails: {
@@ -92,7 +93,7 @@ export function SyllabusCreator({
 
         try {
             const token = localStorage.getItem("token") 
-            const response = await fetch(
+            const response = await fetchWithRefresh(
                 `${process.env.NEXT_PUBLIC_API_URL}/api/syllabus/generate`,
                 {
                     method: "POST",

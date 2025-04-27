@@ -5,16 +5,15 @@ import AzureADProvider from "next-auth/providers/azure-ad"
 import CredentialsProvider from "next-auth/providers/credentials"
 import { cookies } from "next/headers"
 
-// Extend User type to include action
 declare module "next-auth" {
     interface User {
         action?: string
     }
 }
 
-// Extended token and session types
 interface ExtendedToken extends JWT {
     accessToken?: string
+    refreshToken?: string // Add refresh token
     provider?: string
     appToken?: string
     classroomId?: string
@@ -23,16 +22,18 @@ interface ExtendedToken extends JWT {
     name?: string
     error?: string
     action?: string
+    tokenType?: "signup" | "login"
 }
 
 interface ExtendedSession extends Session {
     accessToken?: string
+    refreshToken?: string // Add refresh token
     provider?: string
     appToken?: string
     classroomId?: string
     error?: string
     action?: string
-    tokenType?: "signup" | "login" // Add this line
+    tokenType?: "signup" | "login"
     user: {
         id?: string
         name?: string
@@ -41,7 +42,6 @@ interface ExtendedSession extends Session {
     }
 }
 
-// Verify environment variables at startup
 const requiredEnvVars = [
     "GOOGLE_CLIENT_ID",
     "GOOGLE_CLIENT_SECRET",
@@ -51,20 +51,10 @@ const requiredEnvVars = [
     "NEXTAUTH_URL",
     "BACKEND_URL",
 ]
-console.log("Verifying environment variables...")
 for (const envVar of requiredEnvVars) {
     if (!process.env[envVar]) {
-        console.error(`Missing environment variable: ${envVar}`)
         throw new Error(`Missing environment variable: ${envVar}`)
-    } else {
-        console.log(`Environment variable ${envVar}: ${process.env[envVar]}`)
     }
-}
-// Additional validation for NEXTAUTH_URL
-if (process.env.NEXTAUTH_URL !== "https://grading-app-front-end.vercel.app") {
-    console.warn(
-        `NEXTAUTH_URL is set to ${process.env.NEXTAUTH_URL}, expected https://grading-app-front-end.vercel.app. This may cause session issues.`
-    )
 }
 
 export const authConfig: NextAuthConfig = {
@@ -114,8 +104,9 @@ export const authConfig: NextAuthConfig = {
                     return {
                         id: data.data.userId,
                         email: data.data.email,
-                        name: `${data.data.firstName} ${data.data.lastName}`,
+                        name: data.data.name,
                         appToken: data.data.token,
+                        refreshToken: data.data.refreshToken, // Add refresh token
                         classroomId: data.data.classroomId,
                     }
                 } catch (error: any) {
@@ -128,11 +119,15 @@ export const authConfig: NextAuthConfig = {
     events: {
         async signOut({ token }) {
             console.log("User signed out", token)
-            // Clear any local storage items if needed
             if (typeof window !== "undefined") {
                 localStorage.removeItem("token")
                 localStorage.removeItem("classroomId")
             }
+            // Clear refresh token cookie
+            const response = await fetch("/api/auth/clear-refresh-token", {
+                method: "POST",
+            })
+            console.log("Clear refresh token response:", await response.json())
         },
     },
     callbacks: {
@@ -146,7 +141,6 @@ export const authConfig: NextAuthConfig = {
                 const action = cookieStore.get("auth_action")?.value
                 user.action = action === "signup" ? "signup" : ""
                 console.log("signIn action set:", user.action)
-                console.log("Cookies in signIn:", cookieStore.getAll())
                 cookieStore.set("auth_action", "", { maxAge: 0, path: "/" })
             }
             return true
@@ -164,15 +158,14 @@ export const authConfig: NextAuthConfig = {
             trigger?: "signIn" | "signUp" | "update" | "signOut"
         }) {
             if (trigger === "signOut") {
-                return {} // Clear token on signout
+                return {}
             }
             if (account && user) {
                 try {
                     token.accessToken = account.access_token
                     token.provider = account.provider
                     token.action = user.action || ""
-
-                    console.log("Final action used:", token.action)
+                    token.refreshToken = user.refreshToken // Add refresh token
 
                     let providerId
                     if (account.provider === "google") {
@@ -225,6 +218,7 @@ export const authConfig: NextAuthConfig = {
                         if (data.success && data.data) {
                             if (data.data.token)
                                 token.appToken = data.data.token
+                            token.refreshToken = data.data.refreshToken // Add refresh token
                             token.tokenType = data.data.tokenType || "login"
                             if (data.data.classroomId)
                                 token.classroomId = data.data.classroomId
@@ -234,12 +228,7 @@ export const authConfig: NextAuthConfig = {
                                     token.id = data.data.user._id
                                 if (data.data.user.email)
                                     token.email = data.data.user.email
-                                if (
-                                    data.data.user.firstName &&
-                                    data.data.user.lastName
-                                ) {
-                                    token.name = `${data.data.user.firstName} ${data.data.lastName}`
-                                } else if (data.data.user.name) {
+                                if (data.data.user.name) {
                                     token.name = data.data.user.name
                                 }
                             }
@@ -256,11 +245,51 @@ export const authConfig: NextAuthConfig = {
                     console.error("JWT callback error:", error.message)
                     token.error = error.message || "Failed to process JWT"
                 }
+            } else if (token.appToken) {
+                // Check if access token is expired
+                try {
+                    const decoded = jwt.decode(token.appToken) as {
+                        exp?: number
+                    }
+                    if (decoded?.exp && decoded.exp * 1000 < Date.now()) {
+                        console.log(
+                            "Access token expired, attempting to refresh"
+                        )
+                        const refreshResponse = await fetch(
+                            `${process.env.BACKEND_URL}/api/auth/refresh`,
+                            {
+                                method: "POST",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({
+                                    refreshToken: token.refreshToken,
+                                }),
+                            }
+                        )
+
+                        if (!refreshResponse.ok) {
+                            token.error = "Failed to refresh token"
+                            return token
+                        }
+
+                        const { data } = await refreshResponse.json()
+                        token.appToken = data.token
+                        token.refreshToken = data.refreshToken
+                        token.classroomId = data.classroomId
+                        token.id = data.userId
+                        token.email = data.email
+                        token.name = data.name
+                        token.error = undefined
+                    }
+                } catch (error: any) {
+                    console.error("Token refresh error:", error.message)
+                    token.error = error.message || "Failed to refresh token"
+                }
             }
 
             console.log("JWT token after processing:", token)
             return token
         },
+
         async session(params: {
             session: Session
             token: JWT
@@ -276,7 +305,6 @@ export const authConfig: NextAuthConfig = {
                 trigger: params.trigger,
             })
 
-            // Create extended session with proper typing
             const extendedSession: ExtendedSession = {
                 ...session,
                 user: {
@@ -287,6 +315,7 @@ export const authConfig: NextAuthConfig = {
                     image: undefined,
                 },
                 accessToken: undefined,
+                refreshToken: undefined, // Add refresh token
                 provider: undefined,
                 appToken: undefined,
                 classroomId: undefined,
@@ -294,23 +323,19 @@ export const authConfig: NextAuthConfig = {
                 action: undefined,
             }
 
-            // Type assertion for extended token
             const extendedToken = token as ExtendedToken
 
-            // Map token values to session
             extendedSession.accessToken = extendedToken.accessToken
+            extendedSession.refreshToken = extendedToken.refreshToken // Add refresh token
             extendedSession.provider = extendedToken.provider
             extendedSession.appToken = extendedToken.appToken
             extendedSession.classroomId = extendedToken.classroomId
             extendedSession.error = extendedToken.error
             extendedSession.action = extendedToken.action
-
-            // Add token type to session if it exists in token
             if ("tokenType" in extendedToken) {
                 extendedSession.tokenType = extendedToken.tokenType
             }
 
-            // Map user properties
             if (extendedToken.id) extendedSession.user.id = extendedToken.id
             if (extendedToken.name)
                 extendedSession.user.name = extendedToken.name
@@ -319,7 +344,6 @@ export const authConfig: NextAuthConfig = {
             if (extendedToken.image)
                 extendedSession.user.image = extendedToken.image
 
-            // Debug logging
             console.log("Processed session object:", {
                 user: {
                     id: extendedSession.user.id,
@@ -327,6 +351,9 @@ export const authConfig: NextAuthConfig = {
                     email: extendedSession.user.email,
                 },
                 accessToken: extendedSession.accessToken
+                    ? "***redacted***"
+                    : undefined,
+                refreshToken: extendedSession.refreshToken
                     ? "***redacted***"
                     : undefined,
                 provider: extendedSession.provider,
@@ -341,26 +368,19 @@ export const authConfig: NextAuthConfig = {
 
             return extendedSession
         },
+
         async redirect({ url, baseUrl }) {
             console.log("Redirect callback:", { url, baseUrl, rawUrl: url })
 
-            // Log all cookies for debugging
             const cookieStore = await cookies()
             console.log("All cookies in redirect:", cookieStore.getAll())
 
-            // Check for session token to infer OAuth callback
             const sessionTokenCookie = cookieStore.get(
                 "next-auth.session-token"
             )
             const callbackUrlCookie = cookieStore.get(
                 "authjs.callback-url"
             )?.value
-            console.log("Session token cookie:", {
-                sessionToken: sessionTokenCookie
-                    ? sessionTokenCookie.value
-                    : "missing",
-                callbackUrl: callbackUrlCookie || "none",
-            })
 
             if (
                 sessionTokenCookie ||
@@ -375,7 +395,6 @@ export const authConfig: NextAuthConfig = {
                     hasSessionToken: !!sessionTokenCookie,
                 })
 
-                // Clear callback-url cookie to prevent interference
                 if (callbackUrlCookie) {
                     cookieStore.set("authjs.callback-url", "", {
                         maxAge: 0,
@@ -384,7 +403,6 @@ export const authConfig: NextAuthConfig = {
                     console.log("Cleared authjs.callback-url cookie")
                 }
 
-                // Parse URL (use cookie if url is /login)
                 const effectiveUrl =
                     url.includes("/api/auth/callback") || url.includes("code=")
                         ? url
@@ -403,7 +421,6 @@ export const authConfig: NextAuthConfig = {
                     )}`
                 }
 
-                // Retry auth() up to 3 times with delay
                 let session: ExtendedSession | null = null
                 for (let attempt = 1; attempt <= 3; attempt++) {
                     console.log(`Fetching session, attempt ${attempt}...`)
