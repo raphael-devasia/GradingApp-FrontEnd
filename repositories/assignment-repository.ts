@@ -5,7 +5,8 @@ interface ApiResponse<T> {
     data: T
 }
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5050"
+const API_URL =
+    process.env.NEXT_PUBLIC_API_URL || "https://www.junergypsy.online"
 
 export default class HttpAssignmentRepository {
     private async getToken(): Promise<string> {

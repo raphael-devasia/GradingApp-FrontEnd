@@ -149,7 +149,7 @@ export default function SignupPage() {
             // Set cookie for action
             document.cookie =
                 "auth_action=signup; path=/; max-age=300; SameSite=Lax"
-            const callbackUrl = `http://localhost:3000/signup`
+            const callbackUrl = `https://grading-app-front-end.vercel.app/signup`
             console.log(
                 `Initiating ${provider} OAuth with callbackUrl:`,
                 callbackUrl
@@ -188,7 +188,7 @@ export default function SignupPage() {
 
         try {
             const response = await fetch(
-                "http://localhost:5050/api/auth/signup",
+                "https://www.junergypsy.online/api/auth/signup",
                 {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
@@ -261,7 +261,7 @@ export default function SignupPage() {
 
         try {
             const response = await fetch(
-                "http://localhost:5050/api/users/update-plan",
+                "https://www.junergypsy.online/api/users/update-plan",
                 {
                     method: "POST",
                     headers: {

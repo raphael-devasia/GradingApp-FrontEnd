@@ -70,10 +70,12 @@ export async function createCheckoutSession(formData: FormData) {
                 },
             },
             success_url: `${
-                process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
+                process.env.NEXT_PUBLIC_APP_URL ||
+                "https://grading-app-front-end.vercel.app"
             }/dashboard/assignments?session_id={CHECKOUT_SESSION_ID}`,
             cancel_url: `${
-                process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
+                process.env.NEXT_PUBLIC_APP_URL ||
+                "https://grading-app-front-end.vercel.app"
             }/signup`,
         })
 
