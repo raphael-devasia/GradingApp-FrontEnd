@@ -8,6 +8,7 @@ import {
     Download,
     Check,
     Edit2,
+    
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
@@ -49,7 +50,6 @@ const SYLLABUS_TYPES = {
     UNDERGRADUATE: "undergraduate",
     GRADUATE: "graduate",
     HIGH_SCHOOL: "high_school",
-    MIDDLE_SCHOOL: "middle_school",
     ONLINE: "online",
     BLENDED: "blended",
     PROFESSIONAL: "professional",
@@ -74,39 +74,24 @@ export function SyllabusCreator({
     const [prompt, setPrompt] = useState("")
     const [additionalInfo, setAdditionalInfo] = useState("")
     const [syllabusType, setSyllabusType] =
-        useState<SyllabusType>("middle_school")
+        useState<SyllabusType>("high_school")
+
+    // Hardcoded userId for now (replace with auth context or session)
+    const userId = "680de5a5e454e5d2eb1aa278"
 
     // Generate default prompt based on course details
     useEffect(() => {
-        const defaultPrompt = `Create a comprehensive syllabus in JSON format for a ${courseDetails.gradeLevel} level ${courseDetails.subject} course titled "${courseDetails.name}". The course is described as: ${courseDetails.description}. Include course title, instructor, term, course description, subject, gradeLevel, learning objectives, required materials, grading policy, weekly schedule, and course policies.`
+        const defaultPrompt = `Create a comprehensive syllabus in JSON format for a ${courseDetails.gradeLevel} level ${courseDetails.subject} course titled "${courseDetails.name}" with syllabus type "${syllabusType}". The course is described as: ${courseDetails.description}. Include course title, instructor, term, course description, subject, gradeLevel, learning objectives, required materials, grading policy, weekly schedule, and course policies.`
         setPrompt(defaultPrompt)
-    }, [courseDetails])
+    }, [courseDetails, syllabusType])
 
     // Function to generate syllabus using AI via API
     const generateSyllabus = async () => {
-        const token = localStorage.getItem("token")
-        if (!token) {
-            toast({
-                title: "Authentication Required",
-                description: "Please sign in to generate a syllabus.",
-                variant: "destructive",
-            })
-            return
-        }
-
-        if (!prompt.trim()) {
-            toast({
-                title: "Error",
-                description: "Prompt is required.",
-                variant: "destructive",
-            })
-            return
-        }
-
         setIsGenerating(true)
         console.log("Generation started")
 
         try {
+            const token = localStorage.getItem("token") 
             const response = await fetch(
                 `${process.env.NEXT_PUBLIC_API_URL}/api/syllabus/generate`,
                 {
@@ -121,7 +106,14 @@ export function SyllabusCreator({
                                 ? `\n\nAdditional context: ${additionalInfo}`
                                 : ""
                         }`,
-                        syllabusType,
+                        syllabusType, // Include syllabusType
+                        details: {
+                            userId,
+                            name: courseDetails.name,
+                            description: courseDetails.description,
+                            subject: courseDetails.subject,
+                            gradeLevel: courseDetails.gradeLevel,
+                        },
                     }),
                 }
             )
